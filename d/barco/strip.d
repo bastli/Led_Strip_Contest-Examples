@@ -1,5 +1,6 @@
 module barco.strip;
 import std.format;
+import std.string;
 import std.range;
 import std.conv;
 import std.traits;
