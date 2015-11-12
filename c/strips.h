@@ -56,3 +56,11 @@ extern RETURN_CODE strip_update_buffer(Socket *sock, union Strip_Buffer *buf);
  */
 extern RETURN_CODE strip_update(Socket *sock, Strip *strip);
 
+/**
+ * Zeroes all the LEDs
+ * 
+ * @param strip The strip to zero
+ * @return RETURN_ERROR on error, RETURN_OK on success
+ */
+extern RETURN_CODE strip_zero(Strip *strip);
+
