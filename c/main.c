@@ -1,3 +1,4 @@
+#include "util.h"
 #include "strips.h"
 #include "socket.h"
 #include <math.h>
@@ -18,16 +19,26 @@ int main(int argc, char **argv){
 	Strip s;
 	Socket sock;
 	unsigned int i;
-	s.index=0;
-	for(i=0; i<LED_COUNT; i++){
-		s.leds[i].r=s.leds[i].g=s.leds[i].b=wavefunction(255,i,0,0);
-	}
 	socket_start();
-	
-	socket_open(&sock);
-	strip_update(&sock, &s);
+	socket_open_data(&sock,"127.0.0.1",1337);
+	double t=0;
+
+	strip_zero(&s);
+
+	while(1){
+		for(i=0; i<LED_COUNT; i++){
+			s.leds[i].r=wavefunction(255,i,t,0);
+			s.leds[i].g=wavefunction(255,i,t,1);
+		}
+
+		for(i=0; i<STRIP_COUNT; i++){
+			s.index=(unsigned char)i;
+			strip_update(&sock, &s);
+		}
+		t+=0.2;
+		Barco_sleep_ms(30);
+	}
 	socket_close(&sock);
-	
 	socket_stop();
 	return 0;
 }
