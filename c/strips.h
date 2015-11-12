@@ -13,6 +13,7 @@ typedef struct _LED{
 }ALIGN(1) LED;
 
 #define LED_COUNT 112
+#define STRIP_COUNT 15
 
 ///Holds the index and the various LED datas
 typedef struct _Strip{
