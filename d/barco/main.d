@@ -36,7 +36,6 @@ void main(){
 			off=i*0.5;
 			s.set(r);
 		}
-		write(sa.toTerm());
 		sock.send(sa);
 		Thread.sleep(dur!"msecs"(30));
 	}
