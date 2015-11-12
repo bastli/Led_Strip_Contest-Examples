@@ -11,7 +11,7 @@ enum STRIP_PORT=1337;
  * 
  */
 class BarcoSocket{
-	UdpSocket sock;
+	Socket sock;
 	Address addr;
 	
 	/**
