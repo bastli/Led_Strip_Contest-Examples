@@ -256,4 +256,5 @@ union StripBuffer{
 unittest{
 	StripBuffer sb;
 	static assert(__traits(compiles,"void[] buf=cast(void[])sb.buf;"));
+	static assert(StripBuffer.sizeof==1+3*LED_COUNT);
 }
