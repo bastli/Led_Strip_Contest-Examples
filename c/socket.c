@@ -48,7 +48,13 @@ RETURN_CODE socket_open(Socket *sock){
 }
 
 RETURN_CODE socket_close(Socket *socket){
-	return (close(socket->socket)==0) ? RETURN_OK : RETURN_ERROR;
+	int ret;
+	#ifdef _WIN32
+		ret=closesocket(socket->socket);
+	#else
+		ret=close(socket->socket);
+	#endif
+	return (ret==0) ? RETURN_OK : RETURN_ERROR;
 }
 
 
