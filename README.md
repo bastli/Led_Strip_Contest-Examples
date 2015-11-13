@@ -23,3 +23,9 @@ cd c/
 doxygen doxyfile
 ```
 (Or alternatively just read the headerfiles)
+
+## D ##
+Compile with
+```bash
+dmd2 main.d barco/*.d -ofapp
+```
