@@ -1,0 +1,11 @@
+DOXYFILE_ENCODING      = UTF-8
+PROJECT_NAME           = "BarCo strips"
+OUTPUT_DIRECTORY       = "doc"
+OUTPUT_LANGUAGE        = English
+OPTIMIZE_OUTPUT_FOR_C  = YES
+INPUT                  = socket.h strips.h util.h
+EXTRACT_ALL            = YES
+STRIP_CODE_COMMENTS    = NO
+
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
