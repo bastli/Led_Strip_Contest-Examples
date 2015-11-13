@@ -12,5 +12,6 @@ RETURN_CODE strip_update(Socket *sock, Strip *strip){
 
 RETURN_CODE strip_zero(Strip *strip){
 	memset(strip->leds, 0, sizeof(strip->leds));
+	return RETURN_OK;
 }
 
