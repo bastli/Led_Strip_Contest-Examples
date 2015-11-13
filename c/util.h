@@ -1,4 +1,8 @@
 #pragma once
+/**
+ * @file
+ * Provides some basic utilities.
+ */
 
 typedef enum _RETURN_CODE{
 	RETURN_ERROR=-1,

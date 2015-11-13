@@ -1,4 +1,12 @@
 #pragma once
+/**
+ * @file
+ * @brief Does some abstraction over UDP-sockets.
+ * 
+ * Make sure to initialize the library with `socket_start();` and terminate it 
+ * with `socket_stop();`
+ */
+
 #include <stdint.h>
 #include <stdlib.h>
 #include "util.h"
@@ -8,9 +16,15 @@
 	#include <arpa/inet.h>
 #endif
 
+///The default server IP
 #define STRIP_SERVER "10.6.66.10"
+///The default server Port
 #define STRIP_PORT 1337
 
+/**
+ * @struct Socket
+ * A struct holding the information necessary to send data to the strips.
+ */
 typedef struct _Socket{
 	int socket;
 	struct sockaddr_in addr;
@@ -53,7 +67,10 @@ extern RETURN_CODE socket_open(Socket *sock);
  */
 extern RETURN_CODE socket_close(Socket *socket);
 
-///Represent the message as a pointer and length.
+/**
+ * @struct Socket_Message
+ * Represent the message as a pointer and length.
+ */
 typedef struct _Socket_Message{
 	char *msg;
 	size_t length;
