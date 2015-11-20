@@ -1,4 +1,4 @@
-u = udp('127.0.0.1',1337);
+u = udp('10.6.66.10',1337);
 fopen(u)
 
 N = 112;    % number of LEDs
@@ -15,7 +15,7 @@ for i=1:10000
         % convert to 8 bit unsigned int
         data = uint8(rgb*255);
         
-        % reshape the matrix to vector and append which strip we send to 
+        % reshape the matrix into a vector and append which strip we send to 
         
         dgram = [s-1 reshape(data',1,[])];
         %step(H, dgram);  % transmit the UDP datagram
