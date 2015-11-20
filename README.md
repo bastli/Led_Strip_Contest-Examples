@@ -1,4 +1,4 @@
-# Led_Strip_Contest-Examples
+# Led Strip Contest: Example Code
 Here you can find example code for the Bastli Led Strip Contest 2015/2016 (http://bastli.ch/contest). You might use it for reference or as a starting point for your code.
 
 If you have working code in some funny programming language like Haskell, please make a merge request.
