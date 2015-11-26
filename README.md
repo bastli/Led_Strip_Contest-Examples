@@ -29,3 +29,4 @@ Compile with
 ```bash
 dmd2 main.d barco/*.d -ofapp
 ```
+Or any other D-Compiler(See <http://wiki.dlang.org/Compilers>)
