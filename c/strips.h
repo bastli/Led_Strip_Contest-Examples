@@ -1,11 +1,19 @@
 #pragma once
+/**
+ * @file
+ * Structures the hardware inside heterogenous structs.
+ */
+
 #include "util.h"
 #include "socket.h"
 #include <stdint.h>
 
 #define ALIGN(SIZE) __attribute__((aligned(SIZE)))
 
-///Holds the colour-values
+/**
+ * @struct LED
+ * Holds the colour-values
+ */
 typedef struct _LED{
 	uint8_t r;
 	uint8_t g;
@@ -15,7 +23,10 @@ typedef struct _LED{
 #define LED_COUNT 112
 #define STRIP_COUNT 15
 
-///Holds the index and the various LED datas
+/**
+ * @struct Strip
+ * Holds the index and the various LED datas
+ */
 typedef struct _Strip{
 	uint8_t index;
 	LED leds[LED_COUNT];

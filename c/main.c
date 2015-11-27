@@ -20,7 +20,7 @@ int main(int argc, char **argv){
 	Socket sock;
 	unsigned int i;
 	socket_start();
-	socket_open_data(&sock,"127.0.0.1",1337);
+	socket_open(&sock);
 	double t=0;
 
 	strip_zero(&s);

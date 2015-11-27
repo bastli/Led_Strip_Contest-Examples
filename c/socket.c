@@ -33,7 +33,7 @@ RETURN_CODE socket_open_data(Socket *sock, const char *addr, uint16_t port){
 	sock->addr.sin_family=AF_INET;
 	sock->addr.sin_port=htons(port);
 	#ifdef _WIN32
-		sock->addr.sin_addr.S_un.S_addr = inet_addr(SERVER);
+		sock->addr.sin_addr.S_un.S_addr = inet_addr(addr);
 	#else
 		if(inet_aton(addr , &sock->addr.sin_addr) == 0){
 			close(sock->socket);
@@ -48,7 +48,13 @@ RETURN_CODE socket_open(Socket *sock){
 }
 
 RETURN_CODE socket_close(Socket *socket){
-	return (close(socket->socket)==0) ? RETURN_OK : RETURN_ERROR;
+	int ret;
+	#ifdef _WIN32
+		ret=closesocket(socket->socket);
+	#else
+		ret=close(socket->socket);
+	#endif
+	return (ret==0) ? RETURN_OK : RETURN_ERROR;
 }
 
 
