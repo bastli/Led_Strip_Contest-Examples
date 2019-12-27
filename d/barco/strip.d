@@ -33,6 +33,12 @@ struct Color{
 	static immutable Color GREEN=Color(0x00,0xFF,0x00);
 	///ditto
 	static immutable Color BLUE=Color(0x00,0x00,0xFF);
+	///ditto
+	static immutable Color YELLOW=RED+GREEN;
+	///ditto
+	static immutable Color VIOLET=RED+BLUE;
+	///ditto
+	static immutable Color CYAN=GREEN+BLUE;
 	
 	/**
 	 * Do a bounded operation on a.
