@@ -60,22 +60,20 @@ void do_epilepsy(float fs, Color a, Color b=Color.BLACK, float dur=3){
 	}
 }
 
-Color heat_map_flame(float a, ubyte max_br){
-	a = min(1, a*6);
+Color heat_map_flame(float a, float max_br=1f){
+	a = fmin(1, a*6);
 
-	ubyte red = cast(ubyte)(pow(a,2.2)*max_br);
-	ubyte green = cast(ubyte)(pow(a*0.8f,2.2)*max_br);
-	ubyte blue = cast(ubyte)(pow(a*0.25f,2.2)*(max_br));
-	if(green==0x00 && blue==0x00){
-		red = 0x00;
-	}
+	float red = (pow(a,2.2)*max_br);
+	float green = (pow(a*0.9f,2.2)*max_br);
+	float blue = (pow(a*0.3f,2.2)*(max_br));
+	
 	return Color(red, green, blue);
 }
 
 Color heat_map_blue(float a, ubyte max_br){
-	a = min(1, a*3);
+	a = fmin(1, a*3);
 	return Color(
-		cast(ubyte)(a*3f*(max_br>>3)),
+		cast(ubyte)(a*3f*(max_br>>2)),
 		cast(ubyte)(a*3f*(max_br>>4)),
 		cast(ubyte)(a*max_br)
 		);
@@ -116,7 +114,7 @@ void do_flame() {
 			//s.set(Color(0x20,0x00,0x00).repeat(LED_COUNT));
 			Color[LED_COUNT] stripe;
 			foreach(ii; 0..LED_COUNT){
-				stripe[ii] = heat_map_flame(arr[i][ii], 0x7F);
+				stripe[ii] = heat_map_flame(arr[i][ii], 0.3f);
 			}
 			s.set(stripe[]);
 
