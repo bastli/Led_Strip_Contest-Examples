@@ -1,6 +1,7 @@
 import socket
 import time
 import math
+from random import random
 
 IP_ADDR = "151.217.142.197"
 IP_PORT = 1337
@@ -55,13 +56,10 @@ def send_framebuffer():
 
 
 def main():
-    rings.append(Ring(0.08, (80, 50, 0)))
-    rings.append(Ring(0.3, (0, 80, 80)))
-    rings.append(Ring(0.8, (0, 80, 0)))
-
-    from random import random
-    for i in range(500):
-        rings.append(Ring(random() + 0.08, (random()*15, random()*15, random()*15)))
+    rings.append(Ring(0.08, (100, 50, 100)))
+    rings.append(Ring(0.16, (0, 80, 80)))
+    rings.append(Ring(0.24, (0, 80, 0)))
+    rings.append(Ring(0.32, (80, 20, 0)))
 
     dt = 0.01
     while True:
