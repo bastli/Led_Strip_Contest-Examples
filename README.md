@@ -30,3 +30,15 @@ Compile with
 dmd2 main.d barco/*.d -ofapp
 ```
 Or any other D-Compiler(See <http://wiki.dlang.org/Compilers>)
+
+## Python
+
+A Python (version 3) example is available in the `python/` directory. No
+external dependencies are required to run the code.
+
+The example can be run with:
+
+```bash
+cd python/
+python3 run.py <IP> <port>
+```
