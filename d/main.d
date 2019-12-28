@@ -6,6 +6,7 @@ import std.range;
 import std.algorithm;
 import std.socket;
 import std.random;
+import std.container : SList;
 import core.thread;
 
 
@@ -61,7 +62,7 @@ void do_epilepsy(float fs, Color a, Color b=Color.BLACK, float dur=3){
 }
 
 Color heat_map_flame(float a, float max_br=1f){
-	a = fmin(1, a*6);
+	a = fmin(1, 3*a);
 
 	float red = (pow(a,2.2)*max_br);
 	float green = (pow(a*0.9f,2.2)*max_br);
@@ -79,18 +80,26 @@ Color heat_map_blue(float a, ubyte max_br){
 		);
 }
 
-void do_flame() {
+struct Spark {
+	int str;
+	float y, vel, dmp; // position, velociy, damping
+}
+
+void do_flame(float max_br=0.3f) {
 	float[LED_COUNT+1][STRIP_COUNT] arr;
 	foreach(i; 0..STRIP_COUNT){
 		foreach(ii; 0..LED_COUNT){
 			arr[i][ii] = 0.0f;
 		}
 	}
+	auto spark_list = SList!Spark();
+
+	//spark_list.insert(Spark(choice(iota(0,STRIP_COUNT)),LED_COUNT,-5f,0.5f));
+
 	while(1){
 		// calculate heat intensity arr
 		foreach(i; 0..STRIP_COUNT){
-			float val = uniform(0.0f, 1.0f);
-			arr[i][LED_COUNT-1] = val * val * val;
+			arr[i][LED_COUNT-1] = 0.5f * arr[i][LED_COUNT-1] + 0.5f * pow(uniform(0f, 1f), 3);
 		}
 
 		// propagate intensity
@@ -100,28 +109,68 @@ void do_flame() {
 				val += 0.2f * arr[(i+1)%STRIP_COUNT][ii];
 				val += 0.2f * arr[(i-1+STRIP_COUNT)%STRIP_COUNT][ii];
 				val += 5f * arr[i][ii+1];
-				arr[i][ii] = val * 0.154;// 0.2488f; //0.2286f;
+				arr[i][ii] = val * 0.154; // damping is fideling factor
 			}
 		}
 
 		// sparks
-		//if(uniform(0f, 1f) < 0.1f){
+		if(uniform(0f,1f) < 0.02) {		// create new spark
+			spark_list.insert(Spark(choice(iota(0,STRIP_COUNT)),cast(float)LED_COUNT,-1f,-0.05f));
+		}
 
-		//}
+		//propagate sparks
+		foreach(ref sp; spark_list){ 
+			sp.y += sp.vel;
+			sp.vel *= 1f - sp.dmp;
+			if(sp.y < 0 || sp.y > LED_COUNT+1){
+				spark_list.linearRemove(spark_list[].find(sp).take(1));
+			}
+		}
 
 		// map to strips
 		foreach(i, ref s; sa){
-			//s.set(Color(0x20,0x00,0x00).repeat(LED_COUNT));
 			Color[LED_COUNT] stripe;
 			foreach(ii; 0..LED_COUNT){
-				stripe[ii] = heat_map_flame(arr[i][ii], 0.3f);
+				stripe[ii] = heat_map_flame(arr[i][ii], max_br);
+				foreach(ref sp; spark_list){
+					if(i == cast(int)(sp.str) && ii == cast(int)(sp.y)){
+						stripe[ii] = Color(1f,0.5f,0.05f) * 0.2 + heat_map_flame(arr[i][ii], max_br);
+					}
+				}
 			}
 			s.set(stripe[]);
-
 		}
+
 		sock.send(sa);
-		sleep_ms(10);
+		sleep_ms(5);
 	}
+}
+
+void test_flame_map(float max_br=0.3f) {
+	float[LED_COUNT+1][STRIP_COUNT] arr;
+	foreach(i; 0..STRIP_COUNT){
+		foreach(ii; 0..LED_COUNT){
+			arr[i][ii] = (cast(float)ii)/LED_COUNT;
+		}
+	}
+	auto spark_list = SList!Spark();
+
+	// map to strips
+	foreach(i, ref s; sa){
+		Color[LED_COUNT] stripe;
+		foreach(ii; 0..LED_COUNT){
+			stripe[ii] = heat_map_flame(arr[i][ii], max_br);
+			foreach(ref sp; spark_list){
+				if(i == cast(int)(sp.str) && ii == cast(int)(sp.y)){
+					stripe[ii] = Color(1f,0.5f,0.05f) * 0.2 + heat_map_flame(arr[i][ii], max_br);
+				}
+			}
+		}
+		s.set(stripe[]);
+	}
+
+	sock.send(sa);
+	writeln(sa);
 }
 
 BarcoSocket sock;
@@ -130,5 +179,6 @@ void main(string[] args){
 	sa.initialize();
 	sock=new BarcoSocket(new InternetAddress(args[1], STRIP_PORT));
 	//do_epilepsy(10, Color.WHITE*0.05);
-	do_flame();
+	//test_flame_map(0.3);
+	do_flame(0.6);
 }
