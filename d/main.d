@@ -60,15 +60,25 @@ void do_epilepsy(float fs, Color a, Color b=Color.BLACK, float dur=3){
 	}
 }
 
-// define MIN(x,y) ((x) < (y) ? (x) : (y))
+Color heat_map_flame(float a, ubyte max_br){
+	a = min(1, a*6);
 
-Color heat_map(float a){
+	ubyte red = cast(ubyte)(pow(a,2.2)*max_br);
+	ubyte green = cast(ubyte)(pow(a*0.8f,2.2)*max_br);
+	ubyte blue = cast(ubyte)(pow(a*0.25f,2.2)*(max_br));
+	if(green==0x00 && blue==0x00){
+		red = 0x00;
+	}
+	return Color(red, green, blue);
+}
+
+Color heat_map_blue(float a, ubyte max_br){
 	a = min(1, a*3);
-	a *= 0.5;
 	return Color(
-		cast(ubyte)(a*0xff),
-		cast(ubyte)(a*3f*0x3f),
-		cast(ubyte)(a*3f*0x0f));
+		cast(ubyte)(a*3f*(max_br>>3)),
+		cast(ubyte)(a*3f*(max_br>>4)),
+		cast(ubyte)(a*max_br)
+		);
 }
 
 void do_flame() {
@@ -97,16 +107,16 @@ void do_flame() {
 		}
 
 		// sparks
-		if(uniform(0f, 1f) < 0.1f){
+		//if(uniform(0f, 1f) < 0.1f){
 
-		}
+		//}
 
 		// map to strips
 		foreach(i, ref s; sa){
 			//s.set(Color(0x20,0x00,0x00).repeat(LED_COUNT));
 			Color[LED_COUNT] stripe;
 			foreach(ii; 0..LED_COUNT){
-				stripe[ii] = heat_map(arr[i][ii]);
+				stripe[ii] = heat_map_flame(arr[i][ii], 0x7F);
 			}
 			s.set(stripe[]);
 
