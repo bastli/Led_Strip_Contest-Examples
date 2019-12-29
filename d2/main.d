@@ -434,6 +434,39 @@ void do_blinky(float dur=60, float fs=100, float step=0.01, float p0 = 0.005){
 	}
 }
 
+void do_matrix(float dur=60, float fs=100, float p0=0.05){
+	Particles system;
+	
+	void add(){
+		system ~= Particle(Vector(uniform(0,15), 0), Vector(0,uniform(0.05,0.15)), (p)=>Vector(0,0), Color.GREEN*uniform(0.2,0.4)+Color.WHITE*0.25);
+	}
+	
+	Image!Color img;
+	
+	foreach(ii; 0..(cast(int)(dur*fs))){
+		system.step();
+		if(uniform(0.0,1.0) < p0){
+			add();
+		}
+		foreach(ref p; system.particles){
+			if(p.p.y > img.h){
+				system.remove(p);
+			}
+		}
+		
+		foreach(ref p; img.byPixel){
+			p*=0.99;
+			p.r=0;
+			p.b=0;
+		}
+		blit(system, img);
+		blit(img, sa);
+		sock.send(sa);
+		
+		sleep_fs(fs);
+	}
+}
+
 
 BarcoSocket sock;
 StripArray sa;
@@ -454,6 +487,9 @@ void main(string[] args){
 		break;
 		case "blinky":
 			do_blinky();
+		break;
+		case "matrix":
+			do_matrix();
 		break;
 		default:
 		
