@@ -1,1 +1,1 @@
-../../examples-thecomet/Rings.py
+../python_runner.sh
