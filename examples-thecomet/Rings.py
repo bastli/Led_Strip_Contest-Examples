@@ -44,7 +44,7 @@ def update_rings(dt):
 def rasterize_rings():
     for ring in rings:
         for x in range(15):
-            y_actual = ring.y_pos * 50 + 51 + math.cos(2 * math.pi * ring.order * x/15 + 2*math.pi*ring.tx*ring.fx) * 4
+            y_actual = ring.y_pos * 47 + 53 + math.cos(2 * math.pi * ring.order * x/15 + 2*math.pi*ring.tx*ring.fx) * 4
             y_rasterized = int(y_actual + 0.5)
             v = abs(ring.v) + 1
             width = int(math.sqrt(math.log(10)*v))
