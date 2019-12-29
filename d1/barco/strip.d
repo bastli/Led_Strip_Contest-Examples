@@ -6,6 +6,7 @@ import std.conv;
 import std.traits;
 import std.typecons;
 import std.algorithm.comparison;
+import std.math;
 
 ///Number of LEDS in a strip
 enum LED_COUNT=112;
@@ -94,54 +95,89 @@ struct Color{
 	string toString() const{
 		return format("[%f, %f, %f]", r,g,b);
 	}
+	//static Color hsv(float h, float s, float v){
+	//	h *= 360f;
+	//	auto hi = (h/60f);
+	//	auto f = (h/60f - hi);
+	//	auto p = v * (1-s);
+	//	auto q = v*(1-s*f);
+	//	auto t = v*(1-s*(1-f));
+	//	if(hi == 1){
+	//		return Color(q,v,p);
+	//	}
+	//	else if(hi == 2){
+	//		return Color(p,v,t);
+	//	}
+	//	else if(hi == 3){
+	//		return Color(p,q,v);
+	//	}
+	//	else if(hi == 4){
+	//		return Color(t,p,v);
+	//	}
+	//	else if(hi == 3){
+	//		return Color(v,p,q);
+	//	}
+	//	else{
+	//		return Color(v,t,p);
+	//	}
+	//}
+
+	// according to https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB
 	static Color hsv(float h, float s, float v){
-		h *= 360;
-		auto hi = (h/60);
-		auto f = (h/60 - hi);
-		auto p = v * (1-s);
-		auto q = v*(1-s*f);
-		auto t = v*(1-s*(1-f));
-		if(hi == 1){
-			return Color(q,v,p);
+		static immutable float eps = 0.001f;	// tolerance for equality
+
+		h = (h%1f) * 360f;
+		float hi = (h/60f);
+		float c = v * s;
+		float x = c * (1f - abs((hi%2f)-1f));
+		float m = v - c;
+
+		if(hi <= 1f){
+			return Color(c+m, x+m, 0f+m);
 		}
-		else if(hi == 2){
-			return Color(p,v,t);
+		else if(hi <= 2){
+			return Color(x+m, c+m, 0f+m);
 		}
-		else if(hi == 3){
-			return Color(p,q,v);
+		else if(hi <= 3){
+			return Color(0f+m, c+m, x+m);
 		}
-		else if(hi == 4){
-			return Color(t,p,v);
+		else if(hi <= 4){
+			return Color(0f+m, x+m, c+m);
 		}
-		else if(hi == 3){
-			return Color(v,p,q);
+		else if(hi <= 5){
+			return Color(x+m, 0f+m, c+m);
+		}
+		else if(hi <= 6){
+			return Color(c+m, 0f+m, x+m);
 		}
 		else{
-			return Color(v,t,p);
+			return Color.WHITE;
 		}
 	}
-	
-	// RGB to HSV according to https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB
+
+	// according to https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB
 	// returns degrees
 	static float h_hsv(Color c){ 
-		float eps = 0.001f;	// tolerance for equality
-		
+		static immutable float eps = 0.001f;	// tolerance for equality
 		if((abs(c.r-c.g) < eps) || (abs(c.g-c.b) < eps) || (abs(c.b-c.g) < eps)){	// no dominant color
 			return 0f;
 		}
 		else if(c.r>c.g && c.r>c.b){
-			return (60f*(c.g-c.b)/(c.r-min(c.g,c.b)))%360f;
+			return (0.166667f*(c.g-c.b)/(c.r-min(c.g,c.b)))%1f;
 		}
 		if(c.g>c.r && c.g>c.b){
-			return (60f*(2f + (c.b-c.r)/(c.g-min(c.r,c.b))))%360f;
+			return (0.166667f*(2f + (c.b-c.r)/(c.g-min(c.r,c.b))))%1f;
 		}
 		if(c.b>c.r && c.b>c.g){
-			return (60f*(4f + (c.r-c.g)/(c.b-min(c.r,c.g))))%360f;
+			return (0.166667f*(4f + (c.r-c.g)/(c.b-min(c.r,c.g))))%1f;
 		}
-		else 
+		else {
+			return -1f;
+		}
 
 	}
 	static float s_hsv(Color c){
+		float eps = 0.001f;	// tolerance for equality
 		if((abs(c.r-c.g) < eps) || (abs(c.g-c.b) < eps) || (abs(c.b-c.g) < eps)){	// no dominant color
 			return 0f;
 		}
@@ -151,7 +187,6 @@ struct Color{
 			return (max-min)/max;
 		}
 	}
-
 	static float v_hsv(Color c){
 		return max(c.r,max(c.g,c.b));
 	}

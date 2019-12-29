@@ -124,7 +124,20 @@ struct Spark {
 	float y, vel, dmp; // position, velociy, damping
 }
 
-void do_flame(float max_br=0.3f) {
+void do_flame(
+		float max_br=0.3f, 
+		Color color_bot=Color(1f, 0.95f, 0.4f), 
+		Color color_top=Color(0.9f,0.4f,0.05f), 	
+		string gradient_mode="intens3",  			// various gradient modes (intensty or y-coordinate based)
+		Color color_sprk=Color(0.5f,0.25f,0.025f),	// spark color
+		float sparks_amt=0.02f,						// probability to spawn a new spark
+		float dyn=1f,								// controlls the overall dynamics of the flames (scales other factors) (amplitude of the activity modulation
+		bool hue_mode=false,
+		float hue_speed_bot=0.1f,
+		float hue_speed_top=0.1f
+		) {
+	
+
 	float[LED_COUNT+1][STRIP_COUNT] arr;
 	foreach(i; 0..STRIP_COUNT){
 		foreach(ii; 0..LED_COUNT){
@@ -134,17 +147,29 @@ void do_flame(float max_br=0.3f) {
 	auto spark_list = SList!Spark();
 
 	int rotate = 0; 		// rotate flames to simulate wind  
-	static immutable int MAX_ROT = 3;
-	float activity = 0f; 	// vary flame activity over time
-	//spark_list.insert(Spark(choice(iota(0,STRIP_COUNT)),LED_COUNT,-5f,0.5f));
+	immutable int MAX_ROT = cast(int)(3*dyn);
+	float activity = 0f; 	// varying flame activity over time
+
+
+	float bot_h = Color.h_hsv(color_bot);
+	float bot_s = Color.s_hsv(color_bot);
+	float bot_v = Color.v_hsv(color_bot);
+	//float top_h = Color.h_hsv(color_top);
+	//float top_s = Color.s_hsv(color_top);
+	//float top_v = Color.v_hsv(color_top);
+	float top_h = 0.5f;
+	float top_s = 1f;
+	float top_v = 1f;
+	
 
 	while(1){
 		// activity
 		activity = 0.1f * uniform(-1f, 1f) + 0.9f * activity;
-		// calculate heat intensity arr
+
+		// calculate lowest intensity row (invisible)
 		foreach(i; 0..STRIP_COUNT){
-			arr[i][LED_COUNT-1] = (0.3f + activity) * arr[i][LED_COUNT-1] + (0.7f + activity) * pow(uniform(0f, 1f), 3);
-			//arr[i][LED_COUNT-1] = cast(float)((i%4) == 0);
+			arr[i][LED_COUNT-1] = (0.3f + activity*dyn) * arr[i][LED_COUNT-1] + (0.7f + activity*dyn) * pow(uniform(0f, 1f), 3);
+			//arr[i][LED_COUNT-1] = cast(float)((i%4) == 0);	// static "flames" for testing
 		}
 			// propagate intensity
 		if(uniform(0f,1f) < 0.01f * (abs(rotate)+1)) { // make it more likely to change direction on outer values and more likely to stay on 0
@@ -173,9 +198,9 @@ void do_flame(float max_br=0.3f) {
 				}
 			}
 		}
-		
-		// sparks
-		if(uniform(0f,1f) < 0.02) {		// create new spark
+
+		// create new spark
+		if(uniform(0f,1f) < sparks_amt*activity*dyn) {		
 			spark_list.insert(Spark(choice(iota(0,STRIP_COUNT)),cast(float)LED_COUNT,-0.05f,-0.03f));
 		}
 
@@ -188,26 +213,64 @@ void do_flame(float max_br=0.3f) {
 			}
 		}
 
+		// rotate hue
+		if(hue_mode) {
+			bot_h += hue_speed_bot;
+			top_h += hue_speed_top;
+
+			bot_h = bot_h % 1f;
+			top_h = top_h % 1f;
+
+
+			//color_bot = Color.hsv(bot_h, bot_s, bot_v);
+			//color_top = Color.hsv(top_h, top_s, top_v);
+			color_bot = Color.hsv(bot_h, 1f, bot_v);
+			color_top = Color.hsv(top_h, 1f, top_v);
+		}
+		
 		// map to strips
 		foreach(i, ref s; sa){
 			Color[LED_COUNT] stripe;
 			foreach(ii; 0..LED_COUNT){
+
+				float grad;
+				switch(gradient_mode){
+					case "y":
+						grad = cast(float)ii / LED_COUNT;		// gradient based on y-coordinate
+						break;
+					case "y2":
+						grad = cast(float)ii / LED_COUNT *0.8f+0.2f;	// gradient based on y-coordinate
+						break;
+					case "intens":
+						grad = min(1f, arr[i][ii]);				// gradient based on intensity
+						break;
+					case "intens2":
+						grad = min(1f, sqrt(arr[i][ii]));		// gradient based on intensity
+						break;
+					case "intens3":
+						grad = min(1f, sqrt(sqrt(arr[i][ii])));	// gradient based on intensity
+						break;
+					case "off":
+					default:
+						grad = 0;
+						break;
+				}
+
 				stripe[ii] = heat_map_flame_grad(
-					arr[i][ii],
-					//cast(float)ii / LED_COUNT ,//* 0.5f + 0.5f,
-					min(1f, sqrt(sqrt(arr[i][ii]))),
-					//Color.BLUE, 
-					Color(1f, 0.9f, 0.3f), 
-					Color(0.9f,0.4f,0.05f),
-					//Color(0.9f,0.5f,0.15f), 
-					
-					//Color.RED,
-					max_br * sqrt(cast(float)ii/60 + 0.0f) / sqrt(cast(float)LED_COUNT/60 + 0.0f),
-					//max_br * exp(- cast(float)(LED_COUNT-ii) * 0.02),
-					);
+												arr[i][ii],
+												grad,					
+												//Color(1f, 0.9f, 0.3f), 
+												//Color(0.9f,0.4f,0.05f),
+												color_bot, 
+												color_top,
+												max_br * sqrt(cast(float)ii/60 + 0.0f) / sqrt(cast(float)LED_COUNT/60 + 0.0f),
+												//max_br * exp(- cast(float)(LED_COUNT-ii) * 0.02),
+												);
+
+				// add sparks to stripe array
 				foreach(ref sp; spark_list){
 					if(i == cast(int)(sp.str) && ii == cast(int)(sp.y)){
-						stripe[ii] = Color(1f,0.5f,0.05f) * 0.5 * max_br + stripe[ii];
+						stripe[ii] = color_sprk * max_br + stripe[ii];
 					}
 				}
 			}
@@ -216,7 +279,7 @@ void do_flame(float max_br=0.3f) {
 		sock.send(sa);
 		sleep_ms(4);
 
-		// shift half pixel
+		// shift half pixel   for a faster refreshrate 
 		foreach(i, ref s; sa){
 			foreach(ii; 0..LED_COUNT-1){
 				s.leds[ii].color.r = (s.leds[ii].color.r>>1) + (s.leds[ii+1].color.r>>1);
@@ -271,10 +334,15 @@ StripArray sa;
 void main(string[] args){
 	sa.initialize();
 	sock=new BarcoSocket(new InternetAddress(args[1], STRIP_PORT));
+	float brightness = args[2].to!float;
 	//do_epilepsy(10, Color.WHITE*0.05);
 	//test_map(0.1);
 	//do_leuchtturm();
 	//test_stripe_mapping();
-	do_flame(args[2].to!float);
+	//do_flame(brightness);  // classic flame
+	//do_flame(brightness, Color(1f, 0.95f, 0.4f),Color(0.9f,0.4f,0.05f),"intens3",Color(0.5f,0.25f,0.025f),0.02f,1f);
+	do_flame(brightness, Color.BLUE,Color.RED,"y2",Color.WHITE,0f,1f,true,0.0002f,-0.000233f);
+	//do_flame(brightness, Color.BLUE, Color.RED, "intens2", Color.WHITE * 0.7f, 0.05f);  // artistic flame 
+	//do_flame(brightness, Color.hsv(0.6f,1f,1f), Color.hsv(0.1f,1f,1f), "intens2", Color.WHITE * 0.7f, 0.05f);  // artistic flame 
 	//writeln(blackbody_spec(500e-9, 4000));
 }
