@@ -7,7 +7,9 @@ import std.algorithm;
 import std.socket;
 import std.random;
 import std.container : SList;
+import std.conv;
 import core.thread;
+
 
 
 static const double k=5*2*PI/LED_COUNT;
@@ -131,38 +133,46 @@ void do_flame(float max_br=0.3f) {
 	}
 	auto spark_list = SList!Spark();
 
+	int rotate = 0; // rotate flames to simulate wind   	range: +/-3
 	//spark_list.insert(Spark(choice(iota(0,STRIP_COUNT)),LED_COUNT,-5f,0.5f));
 
 	while(1){
 		// calculate heat intensity arr
 		foreach(i; 0..STRIP_COUNT){
 			arr[i][LED_COUNT-1] = 0.3f * arr[i][LED_COUNT-1] + 0.7f * pow(uniform(0f, 1f), 3);
+			//arr[i][LED_COUNT-1] = cast(float)((i%4) == 0);
 		}
-
-		// propagate intensity
+			// propagate intensity
+		if(uniform(0f,1f) < 0.01f * (abs(rotate)+1)) { // make it more likely to change direction on outer values and more likely to stay on 0
+			//rotate = clamp(rotate + choice(iota(-1,1)), -3, 3);
+			rotate += clamp(choice(iota(-2,2))-rotate, -1, 1); // make it more likely to move towards 0
+			rotate = clamp(rotate, -2, 2);
+		}
 		foreach(i; 0..STRIP_COUNT){
 			foreach(ii; 0..LED_COUNT-1){
-				if(ii > 90){
+				if(ii > 90){ // bottom
 					float val = 1f * arr[i][ii];
 					val += 0.05f * arr[(i+1)%STRIP_COUNT][ii];
 					val += 0.05f * arr[(i-1+STRIP_COUNT)%STRIP_COUNT][ii];
 					val += 4f * arr[i][ii+1];
-					arr[i][ii] = val * 0.196; // 0.154; // damping is fideling factor
+					arr[i][ii] = val * 0.196; // damping is fideling factor
 				}
-				else{
-					float val = 0f * arr[i][ii];
-					val += 0.0f * arr[(i+1)%STRIP_COUNT][ii];
-					val += 0.0f * arr[(i-1+STRIP_COUNT)%STRIP_COUNT][ii];
-					val += 5f * arr[i][ii+1];
-					arr[i][ii] = val * 0.198; // 0.154; // damping is fideling factor
+				else{	// top
+					int rot_idx = LED_COUNT/(abs(rotate)+1);
+					if((ii%rot_idx) == 0){ // rotate at certain y-coordinates
+						arr[i][ii] = arr[(i+STRIP_COUNT+clamp(rotate,-1,1))%STRIP_COUNT][ii+1] * 0.99f;
+					}
+					else {
+						//arr[i][ii] = arr[i][ii+1] * 0.99f; // damping is fideling factor
+						arr[i][ii] = pow(arr[i][ii+1], 1.01f) ; // damping is fideling factor
+					}
 				}
 			}
 		}
-
 		
 		// sparks
 		if(uniform(0f,1f) < 0.02) {		// create new spark
-			spark_list.insert(Spark(choice(iota(0,STRIP_COUNT)),cast(float)LED_COUNT,-1f,-0.05f));
+			spark_list.insert(Spark(choice(iota(0,STRIP_COUNT)),cast(float)LED_COUNT,-0.05f,-0.03f));
 		}
 
 		//propagate sparks
@@ -178,18 +188,29 @@ void do_flame(float max_br=0.3f) {
 		foreach(i, ref s; sa){
 			Color[LED_COUNT] stripe;
 			foreach(ii; 0..LED_COUNT){
-				stripe[ii] = heat_map_flame_grad(arr[i][ii],cast(float)ii / LED_COUNT * 0.5f + 0.5f, Color(1f, 0.8f, 0.3f), Color(0.9f,0.4f,0.05f), max_br * sqrt(cast(float)ii/60 + 0.2f) / sqrt(cast(float)LED_COUNT/60 + 0.2f));
+				stripe[ii] = heat_map_flame_grad(
+					arr[i][ii],
+					//cast(float)ii / LED_COUNT ,//* 0.5f + 0.5f,
+					min(1f, sqrt(sqrt(arr[i][ii]))),
+					//Color.BLUE, 
+					Color(1f, 0.9f, 0.3f), 
+					Color(0.9f,0.4f,0.05f),
+					//Color(0.9f,0.5f,0.15f), 
+					
+					//Color.RED,
+					max_br * sqrt(cast(float)ii/60 + 0.0f) / sqrt(cast(float)LED_COUNT/60 + 0.0f),
+					//max_br * exp(- cast(float)(LED_COUNT-ii) * 0.02),
+					);
 				foreach(ref sp; spark_list){
 					if(i == cast(int)(sp.str) && ii == cast(int)(sp.y)){
-						stripe[ii] = Color(1f,0.5f,0.05f) * 0.2 + stripe[ii];
+						stripe[ii] = Color(1f,0.5f,0.05f) * 0.5 * max_br + stripe[ii];
 					}
 				}
 			}
 			s.set(stripe[]);
 		}
-
 		sock.send(sa);
-		sleep_ms(3);
+		sleep_ms(4);
 
 		// shift half pixel
 		foreach(i, ref s; sa){
@@ -200,8 +221,7 @@ void do_flame(float max_br=0.3f) {
 			}
 		}
 		sock.send(sa);
-		sleep_ms(4);
-
+		sleep_ms(5);
 	}
 }
 
@@ -251,6 +271,6 @@ void main(string[] args){
 	//test_map(0.1);
 	//do_leuchtturm();
 	//test_stripe_mapping();
-	do_flame(1);
+	do_flame(args[2].to!float);
 	//writeln(blackbody_spec(500e-9, 4000));
 }
