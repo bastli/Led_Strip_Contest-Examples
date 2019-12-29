@@ -87,15 +87,25 @@ Color heat_map_blackbody_normalize(float t, float max_br=1f){
 	return Color(r/max, g/max, b/max) * max_br;
 }
 
-
 Color heat_map_flame(float a, float max_br=1f){
 	a = fmin(1, 3*a);
-
 	float red = (pow(a,2.2)*max_br);
-	float green = (pow(a*0.9f,2.2)*max_br);
-	float blue = (pow(a*0.3f,2.2)*(max_br));
+	float green = (pow(a*0.85f,2.2)*max_br);
+	float blue = (pow(a*0.28f,2.2)*(max_br));
 	
 	return Color(red, green, blue);
+}
+
+
+Color heat_map_flame_grad(float inten, float grad, Color a, Color b, float max_br=1f){
+	inten = fmin(1, 3*inten);
+	//Color c =  Color(1f, 0.9f, 0.3f) * (grad) + Color(1f,0.7f,0.05f) * (1-grad);
+	Color c =  a * (grad) + b * (1-grad);
+	c = c * inten;
+	c.r = (pow(c.r,2.2));
+	c.g = (pow(c.g,2.2));
+	c.b = (pow(c.b,2.2));
+	return c * max_br;
 }
 
 Color heat_map_blue(float a, ubyte max_br){
@@ -132,14 +142,24 @@ void do_flame(float max_br=0.3f) {
 		// propagate intensity
 		foreach(i; 0..STRIP_COUNT){
 			foreach(ii; 0..LED_COUNT-1){
-				float val = 2f * arr[i][ii];
-				val += 0.05f * arr[(i+1)%STRIP_COUNT][ii];
-				val += 0.05f * arr[(i-1+STRIP_COUNT)%STRIP_COUNT][ii];
-				val += 3f * arr[i][ii+1];
-				arr[i][ii] = val * 0.195;//0.154; // damping is fideling factor
+				if(ii > 90){
+					float val = 1f * arr[i][ii];
+					val += 0.05f * arr[(i+1)%STRIP_COUNT][ii];
+					val += 0.05f * arr[(i-1+STRIP_COUNT)%STRIP_COUNT][ii];
+					val += 4f * arr[i][ii+1];
+					arr[i][ii] = val * 0.196; // 0.154; // damping is fideling factor
+				}
+				else{
+					float val = 0f * arr[i][ii];
+					val += 0.0f * arr[(i+1)%STRIP_COUNT][ii];
+					val += 0.0f * arr[(i-1+STRIP_COUNT)%STRIP_COUNT][ii];
+					val += 5f * arr[i][ii+1];
+					arr[i][ii] = val * 0.198; // 0.154; // damping is fideling factor
+				}
 			}
 		}
 
+		
 		// sparks
 		if(uniform(0f,1f) < 0.02) {		// create new spark
 			spark_list.insert(Spark(choice(iota(0,STRIP_COUNT)),cast(float)LED_COUNT,-1f,-0.05f));
@@ -158,10 +178,10 @@ void do_flame(float max_br=0.3f) {
 		foreach(i, ref s; sa){
 			Color[LED_COUNT] stripe;
 			foreach(ii; 0..LED_COUNT){
-				stripe[ii] = heat_map_flame(arr[i][ii], max_br);
+				stripe[ii] = heat_map_flame_grad(arr[i][ii],cast(float)ii / LED_COUNT * 0.5f + 0.5f, Color(1f, 0.9f, 0.3f), Color(0.8f,0.5f,0.05f), max_br * sqrt(cast(float)ii/60 + 0.2f));
 				foreach(ref sp; spark_list){
 					if(i == cast(int)(sp.str) && ii == cast(int)(sp.y)){
-						stripe[ii] = Color(1f,0.5f,0.05f) * 0.2 + heat_map_flame(arr[i][ii], max_br);
+						stripe[ii] = Color(1f,0.5f,0.05f) * 0.2 + stripe[ii];
 					}
 				}
 			}
@@ -169,7 +189,19 @@ void do_flame(float max_br=0.3f) {
 		}
 
 		sock.send(sa);
-		sleep_ms(50);
+		sleep_ms(2);
+
+		// shift half pixel
+		foreach(i, ref s; sa){
+			foreach(ii; 0..LED_COUNT-1){
+				s.leds[ii].color.r = (s.leds[ii].color.r>>1) + (s.leds[ii+1].color.r>>1);
+				s.leds[ii].color.g = (s.leds[ii].color.g>>1) + (s.leds[ii+1].color.g>>1);
+				s.leds[ii].color.b = (s.leds[ii].color.b>>1) + (s.leds[ii+1].color.b>>1);
+			}
+		}
+		sock.send(sa);
+		sleep_ms(4);
+
 	}
 }
 
@@ -216,9 +248,9 @@ void main(string[] args){
 	sa.initialize();
 	sock=new BarcoSocket(new InternetAddress(args[1], STRIP_PORT));
 	//do_epilepsy(10, Color.WHITE*0.05);
-	test_map(0.3);
+	//test_map(0.1);
 	//do_leuchtturm();
 	//test_stripe_mapping();
-	//do_flame(0.6);
+	do_flame(0.6);
 	//writeln(blackbody_spec(500e-9, 4000));
 }
