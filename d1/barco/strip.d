@@ -94,6 +94,67 @@ struct Color{
 	string toString() const{
 		return format("[%f, %f, %f]", r,g,b);
 	}
+	static Color hsv(float h, float s, float v){
+		h *= 360;
+		auto hi = (h/60);
+		auto f = (h/60 - hi);
+		auto p = v * (1-s);
+		auto q = v*(1-s*f);
+		auto t = v*(1-s*(1-f));
+		if(hi == 1){
+			return Color(q,v,p);
+		}
+		else if(hi == 2){
+			return Color(p,v,t);
+		}
+		else if(hi == 3){
+			return Color(p,q,v);
+		}
+		else if(hi == 4){
+			return Color(t,p,v);
+		}
+		else if(hi == 3){
+			return Color(v,p,q);
+		}
+		else{
+			return Color(v,t,p);
+		}
+	}
+	
+	// RGB to HSV according to https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB
+	// returns degrees
+	static float h_hsv(Color c){ 
+		float eps = 0.001f;	// tolerance for equality
+		
+		if((abs(c.r-c.g) < eps) || (abs(c.g-c.b) < eps) || (abs(c.b-c.g) < eps)){	// no dominant color
+			return 0f;
+		}
+		else if(c.r>c.g && c.r>c.b){
+			return (60f*(c.g-c.b)/(c.r-min(c.g,c.b)))%360f;
+		}
+		if(c.g>c.r && c.g>c.b){
+			return (60f*(2f + (c.b-c.r)/(c.g-min(c.r,c.b))))%360f;
+		}
+		if(c.b>c.r && c.b>c.g){
+			return (60f*(4f + (c.r-c.g)/(c.b-min(c.r,c.g))))%360f;
+		}
+		else 
+
+	}
+	static float s_hsv(Color c){
+		if((abs(c.r-c.g) < eps) || (abs(c.g-c.b) < eps) || (abs(c.b-c.g) < eps)){	// no dominant color
+			return 0f;
+		}
+		else {
+			float max = max(c.r,max(c.g,c.b));
+			float min = min(c.r,min(c.g,c.b));
+			return (max-min)/max;
+		}
+	}
+
+	static float v_hsv(Color c){
+		return max(c.r,max(c.g,c.b));
+	}
 }
 ///
 unittest{
