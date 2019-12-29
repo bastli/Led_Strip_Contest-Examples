@@ -1,10 +1,13 @@
+#!/usr/bin/env python
+
+import sys
 import socket
 import numpy as np
 import math
 import time
 from random import random
 
-IP_ADDR = "151.217.142.197"
+IP_ADDR = sys.argv[1]
 
 def random_range(range_tuple):
     return (range_tuple[1] - range_tuple[0]) * random() + range_tuple[0]

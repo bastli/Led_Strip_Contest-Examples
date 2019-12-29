@@ -1,10 +1,13 @@
+#!/usr/bin/env python
+
+import sys
 import socket
 import time
 import math
 import numpy as np
 from random import random
 
-IP_ADDR = "151.217.142.197"
+IP_ADDR = sys.argv[1]
 IP_PORT = 1337
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
