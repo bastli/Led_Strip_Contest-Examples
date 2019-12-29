@@ -133,24 +133,28 @@ void do_flame(float max_br=0.3f) {
 	}
 	auto spark_list = SList!Spark();
 
-	int rotate = 0; // rotate flames to simulate wind   	range: +/-3
+	int rotate = 0; 		// rotate flames to simulate wind  
+	static immutable int MAX_ROT = 3;
+	float activity = 0f; 	// vary flame activity over time
 	//spark_list.insert(Spark(choice(iota(0,STRIP_COUNT)),LED_COUNT,-5f,0.5f));
 
 	while(1){
+		// activity
+		activity = 0.1f * uniform(-1f, 1f) + 0.9f * activity;
 		// calculate heat intensity arr
 		foreach(i; 0..STRIP_COUNT){
-			arr[i][LED_COUNT-1] = 0.3f * arr[i][LED_COUNT-1] + 0.7f * pow(uniform(0f, 1f), 3);
+			arr[i][LED_COUNT-1] = (0.3f + activity) * arr[i][LED_COUNT-1] + (0.7f + activity) * pow(uniform(0f, 1f), 3);
 			//arr[i][LED_COUNT-1] = cast(float)((i%4) == 0);
 		}
 			// propagate intensity
 		if(uniform(0f,1f) < 0.01f * (abs(rotate)+1)) { // make it more likely to change direction on outer values and more likely to stay on 0
 			//rotate = clamp(rotate + choice(iota(-1,1)), -3, 3);
-			rotate += clamp(choice(iota(-2,2))-rotate, -1, 1); // make it more likely to move towards 0
-			rotate = clamp(rotate, -2, 2);
+			rotate += clamp(choice(iota(-MAX_ROT,MAX_ROT))-rotate, -1, 1); // make it more likely to move towards 0
+			rotate = clamp(rotate, -MAX_ROT, MAX_ROT);
 		}
 		foreach(i; 0..STRIP_COUNT){
 			foreach(ii; 0..LED_COUNT-1){
-				if(ii > 90){ // bottom
+				if(ii > 80){ // bottom
 					float val = 1f * arr[i][ii];
 					val += 0.05f * arr[(i+1)%STRIP_COUNT][ii];
 					val += 0.05f * arr[(i-1+STRIP_COUNT)%STRIP_COUNT][ii];
