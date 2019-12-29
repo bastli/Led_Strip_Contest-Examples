@@ -19,31 +19,20 @@ enum STRIP_COUNT=15;
  * Color c=Color.RED+Color.BLUE*0.25;
  * ---
  */
+
 struct Color{
-	align(1):
-	ubyte r,g,b;
-	
-	this(ubyte r, ubyte g, ubyte b){
-		this.r = r;
-		this.g = g;
-		this.b = b;
-	}
-	this(float r, float g, float b){
-		this.r = cast(ubyte)(r*255);
-		this.g = cast(ubyte)(g*255);
-		this.b = cast(ubyte)(b*255);
-	}
+	float r,g,b;
 	
 	///Predefined colors
-	static immutable Color BLACK=Color(0x00,0x00,0x00);
+	static immutable Color BLACK=Color(0f,0f,0f);
 	///ditto
-	static immutable Color WHITE=Color(0xFF,0xFF,0xFF);
+	static immutable Color WHITE=Color(1f,1f,1f);
 	///ditto
-	static immutable Color RED=Color(0xFF,0x00,0x00);
+	static immutable Color RED=Color(1f,0f,0f);
 	///ditto
-	static immutable Color GREEN=Color(0x00,0xFF,0x00);
+	static immutable Color GREEN=Color(0f,1f,0f);
 	///ditto
-	static immutable Color BLUE=Color(0x00,0x00,0xFF);
+	static immutable Color BLUE=Color(0f,0f,1f);
 	///ditto
 	static immutable Color YELLOW=RED+GREEN;
 	///ditto
@@ -60,23 +49,23 @@ struct Color{
 	 * Returns:
 	 * 	An ubyte containing the bounded result of the operation
 	 */
-	private static final ubyte opSingleColor(string op, T)(in ubyte a, in T b)if(isNumeric!T){
+	private static final float opSingleColor(string op, T)(in float a, in T b)if(isNumeric!T){
 		mixin("auto res=a"~op~"b;");
-		if(res>a.max){
-			return a.max;
+		if(res>1f){
+			return 1f;
 		}
-		else if(res<a.min){
-			return a.min;
+		else if(res<0f){
+			return 0f;
 		}
-		return cast(ubyte)res;
+		return cast(float)res;
 	}
 	unittest{
-		assert(opSingleColor!("+")(255,10)==255);
-		assert(opSingleColor!("+")(255,10.0)==255);
-		assert(opSingleColor!("*")(130,2.0)==255);
-		assert(opSingleColor!("-")(10,20)==0);
-		assert(opSingleColor!("-")(10,20.0)==0);
-		assert(opSingleColor!("+")(10,20.0)==30);
+		assert(opSingleColor!("+")(1f,0.1f)==1f);
+		assert(opSingleColor!("+")(0.1f,1f)==1f);
+		assert(opSingleColor!("*")(0.6f,2)==1f);
+		assert(opSingleColor!("-")(0.1f,0.2f)==0f);
+		assert(opSingleColor!("-")(0f,1f)==0f);
+		assert(opSingleColor!("+")(0.1f,0.6f)==0.7f);
 	}
 	Color opBinary(string op)(in Color c2)const{
 		return Color(
@@ -103,9 +92,8 @@ struct Color{
 		b=opSingleColor!(op)(b,skalar);
 	}
 	string toString() const{
-		return format("[%d, %d, %d]", r,g,b);
+		return format("[%f, %f, %f]", r,g,b);
 	}
-	
 	static Color hsv(float h, float s, float v){
 		h *= 360;
 		auto hi = cast(int)(h/60);
@@ -142,6 +130,30 @@ unittest{
 	assert(Color.WHITE+Color.WHITE==Color.WHITE);
 }
 
+struct Color8b {
+	align(1):
+	ubyte r,g,b;	
+
+	string toString() const{
+		return format("[%d, %d, %d]", r,g,b);
+	}
+	void opAssign(Color c){
+		/*auto cc = convert_to_8bit(c);
+		this.red=cc.red;
+		this.green=cc.green;
+		this.blue=cc.blue;*/
+		this = convert_to_8bit(c);
+	}
+}
+
+Color8b convert_to_8bit(Color c) {
+	ubyte red = cast(ubyte)(c.r * 245f + 10);
+	ubyte green = cast(ubyte)(c.g * 245f + 10);
+	ubyte blue = cast(ubyte)(c.b * 245f + 10);
+
+	return Color8b(red, green, blue);
+	
+}
 /**
  * A container for a Color.
  * 
@@ -150,7 +162,7 @@ struct LED{
 	static private immutable string TermRepresentation="*";
 	
 	align (1):
-	Color color;
+	Color8b color;
 	alias c=color;
 	
 	string toString() const{
@@ -229,7 +241,7 @@ struct Strip{
 	}
 	body{
 		foreach(ref l; leds){
-			l.color=range.front;
+			l.color=convert_to_8bit(range.front);
 			range.popFront();
 		}
 	}

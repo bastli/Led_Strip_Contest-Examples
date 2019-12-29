@@ -10,7 +10,50 @@ import std.typecons;
 import std.path;
 import std.socket;
 import core.thread;
+import std.traits;
 //import mir.ndslice;
+
+
+
+/**
+ * Returns a floating-point number drawn from a _normal (Gaussian)
+ * distribution with mean $(D mu) and standard deviation $(D sigma).
+ * If no random number generator is specified, the default $(D rndGen)
+ * will be used as the source of randomness.
+ *
+ * Note that this function uses two variates from the uniform random
+ * number generator to generate a single normally-distributed variate.
+ * It is therefore an inefficient means of generating a large number of
+ * normally-distributed variates.  If you wish to draw many variates
+ * from the _normal distribution, it is better to use the range-based
+ * $(D normalDistribution) instead.
+ */
+auto normal(T1, T2)(T1 mu, T2 sigma)
+    if (isNumeric!T1 && isNumeric!T2)
+{
+    return normal!(T1, T2, Random)(mu, sigma, rndGen);
+}
+
+/// ditto
+auto normal(T1, T2, UniformRNG)(T1 mu, T2 sigma, UniformRNG rng)
+    if (isNumeric!T1 && isNumeric!T2 && isUniformRNG!UniformRNG)
+{
+    import std.math;
+
+    static if (isFloatingPoint!(CommonType!(T1, T2)))
+    {
+        alias T = CommonType!(T1, T2);
+    }
+    else
+    {
+        alias T = double;
+    }
+
+    immutable T _r1 = uniform01!T(rng);
+    immutable T _r2 = uniform01!T(rng);
+
+    return sqrt(-2 * log(1 - _r2)) * cos(2 * PI * _r1) * sigma + mu;
+}
 
 
 auto distance(Tuple!(int,int) a){
@@ -104,7 +147,7 @@ auto leuchtturm(Color c, float offset, float phase, float sigma=1.0/15){
 	return (c*trigauss(offset, phase, sigma)).repeat(LED_COUNT);
 }
 
-void do_leuchtturm(Color c=Color.YELLOW*0.1, uint i=10, float step=0.01, uint msecs=20){
+void do_leuchtturm(Color c=Color.YELLOW*0.075, uint i=10, float step=0.01, uint msecs=20){
 	foreach(a; 0..i){
 		foreach(phase; iota(0,1,step)){
 			foreach(ii, ref s; sa){
@@ -266,9 +309,17 @@ void blit(Particles System, ref StripArray sa){
 	}
 }
 
+auto modulo(T)(T value, T m) {
+    auto mod = value % m;
+    if (value < 0) {
+        mod += m;
+    }
+    return mod;
+}
+
 void blit(string op="=")(Particles System, ref Image!Color img){
 	foreach(p; System.particles){
-		p.p.x = (p.p.x + STRIP_COUNT*10) % STRIP_COUNT;
+		p.p.x = modulo(p.p.x, STRIP_COUNT);
 		mixin("img.board[cast(int)p.p.x][cast(int)clamp(p.p.y,0,LED_COUNT-1)] "~op~" p.c;");
 	}
 }
@@ -282,7 +333,7 @@ void blit_smooth(string op="=")(Particles System, ref Image!Color img){
 	}
 }
 
-void do_fireworks(int num=100, float p0=0.01){
+void do_fireworks(int num=20, float p0=0.01){
 	Particles System;
 	Particles Systemb;
 	
@@ -290,13 +341,13 @@ void do_fireworks(int num=100, float p0=0.01){
 		foreach(dir; iota(0,2*PI,2*PI/sparks)){
 			auto x = cos(dir)*v0;
 			auto y = sin(dir)*v0*5;
-			Systemb ~= Particle(p, Vector(x,y), p=>Vector(0,0.005/(1+0*p.v.norm())), c, (p)=>p.c*0.97);
+			Systemb ~= Particle(p, Vector(x,y), p=>Vector(0,0.005/(1)), c, (p)=>p.c*0.97);
 		}
 	}
 	
 	void add_firework(int x0){
 		num--;
-		System ~= Particle(Vector(x0,LED_COUNT),Vector(uniform(-0.05,0.05),0),p=>Vector(0,-0.01), Color.WHITE*0.25, p=>p.c + Color.WHITE*uniform(-0.1,0.1));
+		System ~= Particle(Vector(x0,LED_COUNT),Vector(normal(0,0.05/2),0),p=>Vector(0,-0.01), Color.WHITE*0.25, p=>p.c + Color.WHITE*normal(0,0.3));
 	}
 	
 	Image!Color img;
@@ -339,6 +390,7 @@ Color blinkymap(Complex!float f){
 }
 
 Color blinkymap_inner(Complex!float f){
+	
 	if(f.re < 0){
 		return Color.BLACK;
 	}
@@ -382,6 +434,39 @@ void do_blinky(float dur=60, float fs=100, float step=0.01, float p0 = 0.005){
 	}
 }
 
+void do_matrix(float dur=60, float fs=100, float p0=0.05){
+	Particles system;
+	
+	void add(){
+		system ~= Particle(Vector(uniform(0,15), 0), Vector(0,uniform(0.05,0.15)), (p)=>Vector(0,0), Color.GREEN*uniform(0.2,0.4)+Color.WHITE*0.25);
+	}
+	
+	Image!Color img;
+	
+	foreach(ii; 0..(cast(int)(dur*fs))){
+		system.step();
+		if(uniform(0.0,1.0) < p0){
+			add();
+		}
+		foreach(ref p; system.particles){
+			if(p.p.y > img.h){
+				system.remove(p);
+			}
+		}
+		
+		foreach(ref p; img.byPixel){
+			p*=0.99;
+			p.r=0;
+			p.b=0;
+		}
+		blit(system, img);
+		blit(img, sa);
+		sock.send(sa);
+		
+		sleep_fs(fs);
+	}
+}
+
 
 BarcoSocket sock;
 StripArray sa;
@@ -402,6 +487,9 @@ void main(string[] args){
 		break;
 		case "blinky":
 			do_blinky();
+		break;
+		case "matrix":
+			do_matrix();
 		break;
 		default:
 		

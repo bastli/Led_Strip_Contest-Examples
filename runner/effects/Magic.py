@@ -1,1 +1,1 @@
-../../examples-thecomet/Magic.py
+../python_runner.sh
