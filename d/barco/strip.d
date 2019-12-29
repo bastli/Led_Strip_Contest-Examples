@@ -23,6 +23,17 @@ struct Color{
 	align(1):
 	ubyte r,g,b;
 	
+	this(ubyte r, ubyte g, ubyte b){
+		this.r = r;
+		this.g = g;
+		this.b = b;
+	}
+	this(float r, float g, float b){
+		this.r = cast(ubyte)(r*255);
+		this.g = cast(ubyte)(g*255);
+		this.b = cast(ubyte)(b*255);
+	}
+	
 	///Predefined colors
 	static immutable Color BLACK=Color(0x00,0x00,0x00);
 	///ditto
@@ -93,6 +104,33 @@ struct Color{
 	}
 	string toString() const{
 		return format("[%d, %d, %d]", r,g,b);
+	}
+	
+	static Color hsv(float h, float s, float v){
+		h *= 360;
+		auto hi = cast(int)(h/60);
+		auto f = (h/60 - hi);
+		auto p = v * (1-s);
+		auto q = v*(1-s*f);
+		auto t = v*(1-s*(1-f));
+		if(hi == 1){
+			return Color(q,v,p);
+		}
+		else if(hi == 2){
+			return Color(p,v,t);
+		}
+		else if(hi == 3){
+			return Color(p,q,v);
+		}
+		else if(hi == 4){
+			return Color(t,p,v);
+		}
+		else if(hi == 3){
+			return Color(v,p,q);
+		}
+		else{
+			return Color(v,t,p);
+		}
 	}
 }
 ///

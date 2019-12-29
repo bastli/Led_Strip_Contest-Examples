@@ -4,9 +4,85 @@ import std.math;
 import std.stdio;
 import std.range;
 import std.algorithm;
+import std.random;
+import std.format;
+import std.typecons;
+import std.path;
 import std.socket;
 import core.thread;
+//import mir.ndslice;
 
+
+auto distance(Tuple!(int,int) a){
+	enum xd = 70.0;
+	enum yd = 1.0;
+	return a[0]^^2*xd + a[1]^^2*yd;
+}
+
+float line_distance(Vector x, Vector p1, Vector p2){
+	 return abs((p2.y-p1.y)*x.x - (p2.x-p1.x)*x.y + p2.x*p1.y - p2.y*p1.x)/(sqrt((p2.y-p1.y)^^2 + (p2.x - p1.x)^^2));
+}
+
+
+struct Image(T=float){
+	enum w = STRIP_COUNT;
+	enum h = LED_COUNT;
+	T[h][w] board;
+	
+	int wrap(int x){
+		return (x+10*w)%w;
+	}
+	
+	auto byPixel(){
+		return board[].map!((ref a)=>a[]).joiner;
+	}
+	
+	void set(T v){
+		byPixel().each!((ref p)=>p=v);
+	}
+	
+	auto neighbourhood_map(Range)(uint i, uint j, Range r){
+		return r.map!(a=>tuple((i+a[0]+w)%w,(j+a[1]))).filter!(a=>(a[1]>=0 && a[1]<h));
+	}
+	
+	auto neighbourhood(Range)(uint i, uint j, Range r){
+		ref get(Tuple!(uint,uint) a){
+			return board[a[0]][a[1]];
+		}
+		return neighbourhood_map(i,j,r).map!get;
+	}
+	
+	enum defaultNeighbourhood = [tuple(-1,-1), tuple(-1,0), tuple(-1,1), tuple(0,-1), tuple(0,1), tuple(1,-1), tuple(1,0), tuple(1,1)];
+	
+	
+	auto neighbourhood(uint i, uint j){
+		return neighbourhood(i,j,defaultNeighbourhood);
+	}
+	
+	auto line(Vector a, Vector b){
+		int x0 = cast(int)(min(a.x,b.x));
+		int x1 = cast(int)(ceil(max(a.x,b.x)));
+		int y0 = cast(int)(min(a.y,b.y));
+		int y1 = cast(int)(ceil(max(a.y,b.y)));
+		return cartesianProduct(iota(x0,x1),iota(y0,y1))
+			.filter!(a=>a[1]>=0 && a[1]<h)
+			.map!(x=>Vector(wrap(x[0]),x[1]))
+			.map!(x=>tuple(x, 1-line_distance(x, a, b)))
+			.filter!(a=>a[1]>0)
+		;
+	}
+	
+	auto indices(){
+		return cartesianProduct(iota(0,w),iota(0,h));
+	}
+	
+	ref opIndex(Vector p){
+		return opIndex(cast(size_t)p.x,cast(size_t)p.y);
+	}
+	ref opIndex(size_t x, size_t y){
+		return board[x][y];
+	}
+}
 
 static const double k=5*2*PI/LED_COUNT;
 static const double omega=5*2*PI/LED_COUNT;
@@ -19,6 +95,7 @@ ubyte wavefunction(double amplitude, double x, double t, double offset){
 auto gauss(float x, float mu, float sigma){
 	return exp(-((x-mu)/(sqrt(2.0)*sigma))^^2)/(sqrt(2*PI)*sigma);
 }
+
 auto trigauss(float x, float mu, float sigma){
 	return gauss(x,mu,sigma)+gauss(x+1,mu,sigma)+gauss(x-1,mu,sigma);
 }
@@ -59,11 +136,275 @@ void do_epilepsy(float fs, Color a, Color b=Color.BLACK, float dur=3){
 	}
 }
 
+Color freezemap(float f){
+	Color c = Color.BLACK;
+	auto coff = 1e-2;
+	if(f > coff){
+		c += Color.BLUE*((f-coff)*2);
+	}
+	c += Color.WHITE*(f^^2);
+	return c*0.25;
+}
+
+void blit(in Image!Color img, ref StripArray sa){
+	foreach(i,ref s; sa){
+		s.set(img.board[i][]);
+	}
+}
+void blit(T)(in Image!T img, ref StripArray sa, Color function(T) cmap){
+	foreach(i,ref s; sa){
+		s.set(img.board[i][].map!(a=>cmap(a)));
+	}
+}
+
+void do_freeze(float fs, float p0=0.005, float bleed=0.005){
+	Image!float img;
+	foreach(ref f; img.byPixel()){
+		f = (uniform(0.0,1.0) < p0) ? 1 : 0;
+	}
+	
+	while(true){
+		float diff=0;
+		foreach(a; img.indices()){
+			auto i = a[0];
+			auto j = a[1];
+			foreach(tpl, idx; zip(img.defaultNeighbourhood, img.neighbourhood_map(i,j,img.defaultNeighbourhood))){
+				float *p = &img[idx[0],idx[1]];
+				auto fac = bleed/distance(tpl);
+				auto pn = clamp(*p+img[i,j]*fac, 0, 1);
+				diff += abs(*p-pn);
+				*p = pn;
+			}
+		}
+		
+		if(diff < 1e-2){
+			break;
+		}
+		img.blit(sa, &freezemap);
+		
+		sock.send(sa);
+		sleep_ms(cast(int)(1000/fs));
+	}
+}
+
+struct Vector{
+	float x,y;
+	Vector opBinary(string op)(in Vector b) const{
+		Vector v;
+		mixin("v.x = this.x "~op~" b.x;");
+		mixin("v.y = this.y "~op~" b.y;");
+		return v;
+	}
+	float norm()const{
+		return x^^2+y^^2;
+	}
+}
+struct Particle{
+	Vector p,v;
+	Vector function(Particle) a;
+	Color c;
+	Color function(Particle) color_transition;
+	bool function(Particle) outscoped;
+	
+	Vector get_a(){
+		if(a is null){
+			return Vector(0,0);
+		}
+		return a(this);
+	}
+	
+	bool step(){
+		p = p + v;
+		v = v + get_a();
+		if(!(color_transition is null)){
+			c = color_transition(this);
+		}
+		if(outscoped !is null){
+			return !outscoped(this);
+		}
+		return true;
+	}
+}
+
+import std.container;
+struct Particles{
+	SList!Particle system;
+	size_t _length=0;
+	void opOpAssign(string op="~")(Particle p){
+		system.insert(p);
+		_length++;
+	}
+	
+	void step(){
+		foreach(ref p; system[]){
+			if(!p.step()){
+				remove(p);
+			}
+		}
+	}
+	auto length()const{
+		return _length;
+	}
+	
+	void remove(Particle p){
+		_length--;
+		system.linearRemoveElement(p);
+	}
+	
+	auto particles(){
+		return system[];
+	}
+}
+
+void blit(Particles System, ref StripArray sa){
+	foreach(ref s; sa){
+		s.set(Color.BLACK.repeat(LED_COUNT));
+	}
+	foreach(p; System.particles){
+		p.p.x = (p.p.x + STRIP_COUNT) % STRIP_COUNT;
+		sa.strips[cast(int)p.p.x].leds[cast(int)clamp(p.p.y,0,LED_COUNT-1)].c = p.c;
+	}
+}
+
+void blit(string op="=")(Particles System, ref Image!Color img){
+	foreach(p; System.particles){
+		p.p.x = (p.p.x + STRIP_COUNT*10) % STRIP_COUNT;
+		mixin("img.board[cast(int)p.p.x][cast(int)clamp(p.p.y,0,LED_COUNT-1)] "~op~" p.c;");
+	}
+}
+
+void blit_smooth(string op="=")(Particles System, ref Image!Color img){
+	foreach(p; System.particles){
+		p.p.x = (p.p.x + STRIP_COUNT*10) % STRIP_COUNT;
+		foreach(pp,w; img.line(p.p,p.p-p.v)){
+			mixin("img[cast(int)pp.x,cast(int)pp.y] "~op~" p.c*w;");
+		}
+	}
+}
+
+void do_fireworks(int num=100, float p0=0.01){
+	Particles System;
+	Particles Systemb;
+	
+	void add_sparks(Vector p, Color c, float v0=0.1, int sparks=10){
+		foreach(dir; iota(0,2*PI,2*PI/sparks)){
+			auto x = cos(dir)*v0;
+			auto y = sin(dir)*v0*5;
+			Systemb ~= Particle(p, Vector(x,y), p=>Vector(0,0.005/(1+0*p.v.norm())), c, (p)=>p.c*0.97);
+		}
+	}
+	
+	void add_firework(int x0){
+		num--;
+		System ~= Particle(Vector(x0,LED_COUNT),Vector(uniform(-0.2,0.2),0),p=>Vector(0,-0.01), Color.WHITE*0.25, p=>p.c + Color.WHITE*uniform(-0.1,0.1));
+	}
+	
+	Image!Color img;
+	
+	
+	while(num > 0 || System.length + Systemb.length > 0){
+		System.step();
+		Systemb.step();
+		//sa.strips.each!((ref a)=>a.set(Color.BLACK.repeat(LED_COUNT)));
+		if(uniform(0.0,1.0) < p0){
+			add_firework(uniform(0,STRIP_COUNT));
+		}
+		foreach(p; System.particles){
+			if(p.p.y < 70 && uniform(1,70)>p.p.y){ //|| p.p.y >= img.h*0.75){
+				add_sparks(p.p, Color.hsv(uniform(0.0,1.0),1,1), uniform(0.01,0.1), uniform(5,30));
+				System.remove(p);
+				continue;
+			}
+		}
+		foreach(p; Systemb.particles){
+			if(p.p.y >= img.h){
+				Systemb.remove(p);
+				continue;
+			}
+		}
+		
+		img.byPixel.each!((ref p) => p*=0.9);
+		blit_smooth!"+="(System, img);
+		blit_smooth!"+="(Systemb, img);
+		blit(img, sa);
+		//blit(System, img);
+		//blit(Systemb, sa);
+		sock.send(sa);
+		sleep_ms(10);
+	}
+}
+
+Color blinkymap(Complex!float f){
+	return blinkymap_inner(f)*0.5;
+}
+
+Color blinkymap_inner(Complex!float f){
+	if(f.re < 0){
+		return Color.BLACK;
+	}
+	else if(f.re < 1){
+		float v = f.re*2;
+		if(v > 1){
+			v = 2-v;
+		}
+		return Color.hsv(f.im,1,v);
+	}
+	return Color.BLACK;
+}
+
+void sleep_fs(float fs){
+	sleep_ms(cast(int)(1000/fs));
+}
+
+import std.complex;
+
+void do_blinky(float fs=100, float step=0.01, float p0 = 0.005){
+	Image!(Complex!float) img;
+	img.byPixel.each!((ref p)=>(p=-1));
+	foreach(i; 0..10000){
+		foreach(ref p; img.byPixel){
+			if(p.re >= 0){
+				p.re += step;
+				if(p.re > 1){
+					p = -1;
+				}
+			}
+			else{
+				if(uniform(0.0,1.0) < p0){
+					p.re = step;
+					p.im = uniform(0.0,1.0);
+				}
+			}
+		}
+		blit(img, sa, &blinkymap);
+		sock.send(sa);
+		sleep_fs(fs);
+	}
+}
+
+
 BarcoSocket sock;
 StripArray sa;
 void main(string[] args){
 	sa.initialize();
 	sock=new BarcoSocket(new InternetAddress(args[1], STRIP_PORT));
+	
 	//do_epilepsy(10, Color.WHITE*0.05);
-	do_leuchtturm();
+	switch(baseName(args[0])){
+		case "leuchtturm":
+			do_leuchtturm();
+		break;
+		case "freeze":
+			do_freeze(100);
+		break;
+		case "fireworks":
+			do_fireworks();
+		break;
+		case "blinky":
+			do_blinky();
+		break;
+		default:
+		
+		break;
+	}
 }
