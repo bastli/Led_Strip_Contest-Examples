@@ -296,7 +296,7 @@ void do_fireworks(int num=100, float p0=0.01){
 	
 	void add_firework(int x0){
 		num--;
-		System ~= Particle(Vector(x0,LED_COUNT),Vector(uniform(-0.2,0.2),0),p=>Vector(0,-0.01), Color.WHITE*0.25, p=>p.c + Color.WHITE*uniform(-0.1,0.1));
+		System ~= Particle(Vector(x0,LED_COUNT),Vector(uniform(-0.05,0.05),0),p=>Vector(0,-0.01), Color.WHITE*0.25, p=>p.c + Color.WHITE*uniform(-0.1,0.1));
 	}
 	
 	Image!Color img;
@@ -310,7 +310,7 @@ void do_fireworks(int num=100, float p0=0.01){
 			add_firework(uniform(0,STRIP_COUNT));
 		}
 		foreach(p; System.particles){
-			if(p.p.y < 70 && uniform(1,70)>p.p.y){ //|| p.p.y >= img.h*0.75){
+			if(p.p.y < 50 && uniform(1,50)>p.p.y){ //|| p.p.y >= img.h*0.75){
 				add_sparks(p.p, Color.hsv(uniform(0.0,1.0),1,1), uniform(0.01,0.1), uniform(5,30));
 				System.remove(p);
 				continue;
@@ -358,10 +358,10 @@ void sleep_fs(float fs){
 
 import std.complex;
 
-void do_blinky(float fs=100, float step=0.01, float p0 = 0.005){
+void do_blinky(float dur=60, float fs=100, float step=0.01, float p0 = 0.005){
 	Image!(Complex!float) img;
 	img.byPixel.each!((ref p)=>(p=-1));
-	foreach(i; 0..10000){
+	foreach(i; 0..(cast(int)(dur*fs))){
 		foreach(ref p; img.byPixel){
 			if(p.re >= 0){
 				p.re += step;
