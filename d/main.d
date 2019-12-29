@@ -178,7 +178,7 @@ void do_flame(float max_br=0.3f) {
 		foreach(i, ref s; sa){
 			Color[LED_COUNT] stripe;
 			foreach(ii; 0..LED_COUNT){
-				stripe[ii] = heat_map_flame_grad(arr[i][ii],cast(float)ii / LED_COUNT * 0.5f + 0.5f, Color(1f, 0.9f, 0.3f), Color(0.8f,0.5f,0.05f), max_br * sqrt(cast(float)ii/60 + 0.2f));
+				stripe[ii] = heat_map_flame_grad(arr[i][ii],cast(float)ii / LED_COUNT * 0.5f + 0.5f, Color(1f, 0.8f, 0.3f), Color(0.9f,0.4f,0.05f), max_br * sqrt(cast(float)ii/60 + 0.2f) / sqrt(cast(float)LED_COUNT/60 + 0.2f));
 				foreach(ref sp; spark_list){
 					if(i == cast(int)(sp.str) && ii == cast(int)(sp.y)){
 						stripe[ii] = Color(1f,0.5f,0.05f) * 0.2 + stripe[ii];
@@ -189,7 +189,7 @@ void do_flame(float max_br=0.3f) {
 		}
 
 		sock.send(sa);
-		sleep_ms(2);
+		sleep_ms(3);
 
 		// shift half pixel
 		foreach(i, ref s; sa){
@@ -251,6 +251,6 @@ void main(string[] args){
 	//test_map(0.1);
 	//do_leuchtturm();
 	//test_stripe_mapping();
-	do_flame(0.6);
+	do_flame(1);
 	//writeln(blackbody_spec(500e-9, 4000));
 }
