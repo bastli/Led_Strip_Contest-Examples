@@ -67,6 +67,11 @@ struct Color{
 		assert(opSingleColor!("-")(0f,1f)==0f);
 		assert(opSingleColor!("+")(0.1f,0.6f)==0.7f);
 	}
+	
+	float norm()const{
+		return r^^2+g^^2+b^^2;
+	}
+	
 	Color opBinary(string op)(in Color c2)const{
 		return Color(
 			opSingleColor!(op)(r,c2.r),
@@ -137,13 +142,15 @@ struct Color8b {
 	string toString() const{
 		return format("[%d, %d, %d]", r,g,b);
 	}
-	void opAssign(Color c){
-		/*auto cc = convert_to_8bit(c);
-		this.red=cc.red;
-		this.green=cc.green;
-		this.blue=cc.blue;*/
-		this = convert_to_8bit(c);
+	/*
+	void opAssign(in Color c){
+		auto cc = convert_to_8bit(c);
+		this.r=cc.r;
+		this.g=cc.g;
+		this.b=cc.b;
+		//this = convert_to_8bit(c);
 	}
+	*/
 }
 
 Color8b convert_to_8bit(Color c) {

@@ -238,6 +238,12 @@ struct Vector{
 		mixin("v.y = this.y "~op~" b.y;");
 		return v;
 	}
+	Vector opBinary(string op)(in float b) const{
+		Vector v;
+		mixin("v.x = this.x "~op~" b;");
+		mixin("v.y = this.y "~op~" b;");
+		return v;
+	}
 	float norm()const{
 		return x^^2+y^^2;
 	}
@@ -305,7 +311,7 @@ void blit(Particles System, ref StripArray sa){
 	}
 	foreach(p; System.particles){
 		p.p.x = (p.p.x + STRIP_COUNT) % STRIP_COUNT;
-		sa.strips[cast(int)p.p.x].leds[cast(int)clamp(p.p.y,0,LED_COUNT-1)].c = p.c;
+		sa.strips[cast(int)p.p.x].leds[cast(int)clamp(p.p.y,0,LED_COUNT-1)].c = convert_to_8bit(p.c);
 	}
 }
 
@@ -333,25 +339,26 @@ void blit_smooth(string op="=")(Particles System, ref Image!Color img){
 	}
 }
 
-void do_fireworks(int num=20, float p0=0.01){
+void do_fireworks(int num=100, float p0=0.01){
 	Particles System;
 	Particles Systemb;
 	
-	void add_sparks(Vector p, Color c, float v0=0.1, int sparks=10){
+	void add_sparks(Vector p, Vector v, Color c, float v0=0.1, int sparks=10){
 		foreach(dir; iota(0,2*PI,2*PI/sparks)){
 			auto x = cos(dir)*v0;
 			auto y = sin(dir)*v0*5;
-			Systemb ~= Particle(p, Vector(x,y), p=>Vector(0,0.005/(1)), c, (p)=>p.c*0.97);
+			Systemb ~= Particle(p, v+Vector(x,y), p=>Vector(0,0.005/(1)), c, (p)=>p.c*0.93);
 		}
 	}
 	
 	void add_firework(int x0){
-		num--;
-		System ~= Particle(Vector(x0,LED_COUNT),Vector(normal(0,0.05/2),0),p=>Vector(0,-0.01), Color.WHITE*0.25, p=>p.c + Color.WHITE*normal(0,0.3));
+		if(num-- > 0){
+			System ~= Particle(Vector(x0,LED_COUNT),Vector(normal(0,0.05/2),0),p=>Vector(0,-0.01), Color.WHITE*0.25, p=>p.c + Color.WHITE*normal(0,0.3));
+		}
 	}
 	
 	Image!Color img;
-	
+	img.byPixel.each!((ref p)=>p=Color.BLACK);
 	
 	while(num > 0 || System.length + Systemb.length > 0){
 		System.step();
@@ -360,21 +367,23 @@ void do_fireworks(int num=20, float p0=0.01){
 		if(uniform(0.0,1.0) < p0){
 			add_firework(uniform(0,STRIP_COUNT));
 		}
+		
 		foreach(p; System.particles){
 			if(p.p.y < 50 && uniform(1,50)>p.p.y){ //|| p.p.y >= img.h*0.75){
-				add_sparks(p.p, Color.hsv(uniform(0.0,1.0),1,1), uniform(0.01,0.1), uniform(5,30));
+				add_sparks(p.p, p.v*0.25, Color.hsv(uniform(0.0,1.0),1,1), uniform(0.01,0.1), uniform(5,30));
 				System.remove(p);
 				continue;
 			}
 		}
+		
 		foreach(p; Systemb.particles){
-			if(p.p.y >= img.h){
+			if(p.p.y >= img.h || p.c.norm() < 1e-4){
 				Systemb.remove(p);
 				continue;
 			}
 		}
 		
-		img.byPixel.each!((ref p) => p*=0.9);
+		img.byPixel.each!((ref p) => p *= 0.9);
 		blit_smooth!"+="(System, img);
 		blit_smooth!"+="(Systemb, img);
 		blit(img, sa);
@@ -410,7 +419,7 @@ void sleep_fs(float fs){
 
 import std.complex;
 
-void do_blinky(float dur=60, float fs=100, float step=0.01, float p0 = 0.005){
+void do_blinky(float delegate() hue=()=>uniform(0.0,1.0), float dur=60, float fs=100, float step=0.01, float p0 = 0.005){
 	Image!(Complex!float) img;
 	img.byPixel.each!((ref p)=>(p=-1));
 	foreach(i; 0..(cast(int)(dur*fs))){
@@ -424,7 +433,7 @@ void do_blinky(float dur=60, float fs=100, float step=0.01, float p0 = 0.005){
 			else{
 				if(uniform(0.0,1.0) < p0){
 					p.re = step;
-					p.im = uniform(0.0,1.0);
+					p.im = hue();
 				}
 			}
 		}
@@ -438,7 +447,7 @@ void do_matrix(float dur=60, float fs=100, float p0=0.05){
 	Particles system;
 	
 	void add(){
-		system ~= Particle(Vector(uniform(0,15), 0), Vector(0,uniform(0.05,0.15)), (p)=>Vector(0,0), Color.GREEN*uniform(0.2,0.4)+Color.WHITE*0.25);
+		system ~= Particle(Vector(uniform(0,15), 0), Vector(0,uniform(0.1,0.3)), (p)=>Vector(0,0), Color.GREEN*uniform(0.2,0.4)+Color.WHITE*0.25);
 	}
 	
 	Image!Color img;
@@ -474,7 +483,6 @@ void main(string[] args){
 	sa.initialize();
 	sock=new BarcoSocket(new InternetAddress(args[1], STRIP_PORT));
 	
-	//do_epilepsy(10, Color.WHITE*0.05);
 	switch(baseName(args[0])){
 		case "leuchtturm":
 			do_leuchtturm();
@@ -487,6 +495,9 @@ void main(string[] args){
 		break;
 		case "blinky":
 			do_blinky();
+		break;
+		case "christmas":
+			do_blinky(()=>0.1);
 		break;
 		case "matrix":
 			do_matrix();
