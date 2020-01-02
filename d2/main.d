@@ -347,7 +347,7 @@ void do_fireworks(int num=100, float p0=0.01){
 		foreach(dir; iota(0,2*PI,2*PI/sparks)){
 			auto x = cos(dir)*v0;
 			auto y = sin(dir)*v0*5;
-			Systemb ~= Particle(p, v+Vector(x,y), p=>Vector(0,0.005/(1)), c, (p)=>p.c*0.93);
+			Systemb ~= Particle(p, v+Vector(x,y), p=>Vector(0,0.005/(1)), c, (p)=>p.c*0.95);
 		}
 	}
 	
@@ -377,7 +377,7 @@ void do_fireworks(int num=100, float p0=0.01){
 		}
 		
 		foreach(p; Systemb.particles){
-			if(p.p.y >= img.h || p.c.norm() < 1e-4){
+			if(p.p.y >= img.h || p.c.norm() < 1e-6){
 				Systemb.remove(p);
 				continue;
 			}
